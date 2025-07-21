@@ -15,8 +15,36 @@ console.log('API Key:', process.env.GOOGLE_API_KEY);
 app.post('/api/nearby-cafes-open-3hr', async (req, res) => {
   const { latitude, longitude, currentTime } = req.body;
 
-  if (!latitude || !longitude) {
-    return res.status(400).json({ error: '請提供 latitude 和 longitude' });
+  // 收集錯誤訊息
+  let hasError = false;
+  let response = {};
+
+  if (!latitude) {
+    response.latitude = 'There is an error in the input of latitude';
+    hasError = true;
+  }
+  else {
+    response.latitude = latitude;
+  }
+
+  if (!longitude) {
+    response.longitude = 'There is an error in the input of longitude';
+    hasError = true;
+  }
+  else {
+    response.longitude = longitude;
+  }
+
+  if (!currentTime) {
+    response.currentTime = 'There is an error in the input of currentTime';
+    hasError = true;
+  }
+  else {
+    response.currentTime = currentTime;
+  }
+
+  if (hasError) {
+    return res.status(400).json(response);
   }
 
   let now;
@@ -41,8 +69,13 @@ app.post('/api/nearby-cafes-open-3hr', async (req, res) => {
     const nearbyData = await nearbyRes.json();
 
     if (!nearbyData.results || nearbyData.results.length === 0) {
-      return res.send('⚠️ 找不到附近的咖啡廳。');
+      return res.status(200).json({
+        code: 200,
+        message: "Query executed successfully, but no data found.",
+        data: []
+      });
     }
+
 
     const cafes = nearbyData.results;
     const candidates = [];
@@ -88,19 +121,33 @@ app.post('/api/nearby-cafes-open-3hr', async (req, res) => {
     }
 
     if (candidates.length === 0) {
-      return res.send('⚠️ 找不到符合條件的咖啡廳。');
+      return res.status(200).json({
+        code: 200,
+        message: "Query executed successfully, but no data found.",
+        data: []
+      });
     }
 
     // 排序距離，取最接近的前三間
     const topThree = candidates.sort((a, b) => a.distance_km - b.distance_km).slice(0, 3);
 
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    const formatted = topThree.map(cafe =>
-      JSON.stringify(cafe, null, 2)
-    ).join('\n');
-    res.send(formatted);
+    if (topThree.length === 0) {
+      return res.status(200).json({
+        code: 200,
+        message: "Query executed successfully, but no data found.",
+        data: []
+      });
+    }
 
-  } catch (err) {
+    return res.status(200).json({
+      data: topThree
+    });
+
+
+  }
+  
+  catch (err) {
     console.error('❌ 錯誤:', err);
     return res.status(500).json({ error: '伺服器錯誤' });
   }
